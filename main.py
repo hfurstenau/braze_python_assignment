@@ -23,14 +23,22 @@ class DataModeler:
         '''
         Initialize the DataModeler as necessary.
         '''
-        # ** Your code here **
+        self.train_df = sample_df.copy()
+        self.model = None
+        self.amount_mean = None
+        self.date_mean = None
 
     def prepare_data(self, oos_df: pd.DataFrame = None) -> pd.DataFrame:
         '''
         Prepare a dataframe so it contains only the columns to model and having suitable types.
         If the argument is None, work on the training data passed in the constructor.
         '''
-        # ** Your code here **
+        df = self.train_df if oos_df is None else oos_df
+        result = df[['amount', 'transaction_date']].copy()
+        result['transaction_date'] = pd.to_datetime(result['transaction_date']).astype(np.int64)
+        if oos_df is None:
+            self.train_df = result
+        return result
 
     def impute_missing(self, oos_df: pd.DataFrame = None) -> pd.DataFrame:
         '''
@@ -38,20 +46,37 @@ class DataModeler:
         If the argument is None, work on the training data passed in the constructor.
         Hint: Watch out for data leakage in your solution.
         '''
-        # ** Your code here **
+        if oos_df is None:
+            df = self.train_df.copy()
+            self.amount_mean = df['amount'].mean()
+            self.date_mean = df['transaction_date'].mean()
+            df['amount'] = df['amount'].fillna(self.amount_mean)
+            df['transaction_date'] = df['transaction_date'].fillna(self.date_mean)
+            self.train_df = df
+            return df
+        else:
+            result = oos_df.copy()
+            result['amount'] = result['amount'].fillna(self.amount_mean)
+            result['transaction_date'] = result['transaction_date'].fillna(self.date_mean)
+            return result
 
     def fit(self) -> None:
         '''
         Fit the model of your choice on the training data paased in the constructor, assuming it has
         been prepared by the functions prepare_data and impute_missing
         '''
-        # ** Your code here **
+        from sklearn.ensemble import RandomForestClassifier
+        X = self.train_df[['amount', 'transaction_date']]
+        y = self.train_df['outcome'] if 'outcome' in self.train_df.columns else None
+        if y is not None:
+            self.model = RandomForestClassifier(random_state=42)
+            self.model.fit(X, y)
 
     def model_summary(self) -> str:
         '''
         Create a short summary of the model you have fit.
         '''
-        # ** Your code here **
+        return "RandomForestClassifier with 2 features: amount and transaction_date"
 
     def predict(self, oos_df: pd.DataFrame = None) -> pd.Series[bool]:
         '''
@@ -59,20 +84,28 @@ class DataModeler:
         functions prepare_data and impute_missing.
         If the argument is None, work on the training data passed in the constructor.
         '''
-        # ** Your code here **
+        if oos_df is None:
+            X = self.train_df[['amount', 'transaction_date']]
+        else:
+            X = oos_df[['amount', 'transaction_date']]
+        return pd.Series(self.model.predict(X))
 
     def save(self, path: str) -> None:
         '''
         Save the DataModeler so it can be re-used.
         '''
-        # ** Your code here **
+        import pickle
+        with open(f"{path}.pkl", 'wb') as f:
+            pickle.dump(self, f)
 
     @staticmethod
     def load(path: str) -> DataModeler:
         '''
         Reload the DataModeler from the saved state so it can be re-used.
         '''
-        # ** Your code here **
+        import pickle
+        with open(f"{path}.pkl", 'rb') as f:
+            return pickle.load(f)
 
 
 #################################################################################
