@@ -16,6 +16,7 @@ Instructions:
 from __future__ import annotations
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 
 
 class DataModeler:
@@ -23,6 +24,7 @@ class DataModeler:
         '''
         Initialize the DataModeler as necessary.
         '''
+        self.original_df = sample_df.copy()
         self.train_df = sample_df.copy()
         self.model = None
         self.amount_mean = None
@@ -33,12 +35,23 @@ class DataModeler:
         Prepare a dataframe so it contains only the columns to model and having suitable types.
         If the argument is None, work on the training data passed in the constructor.
         '''
-        df = self.train_df if oos_df is None else oos_df
-        result = df[['amount', 'transaction_date']].copy()
-        result['transaction_date'] = pd.to_datetime(result['transaction_date']).astype(np.int64)
+        df = self.train_df.copy() if oos_df is None else oos_df.copy()
+        df = df[['amount', 'transaction_date']].copy()
+
+        # TRANSACTION DATE: vectorised solution
+        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
+
+        # reference epoch for Unix time (naive, no timezone)
+        epoch = np.datetime64('1970-01-01T00:00:00')
+
+        # convert datetime64 column to float nanoseconds since epoch
+        df['transaction_date'] = (df['transaction_date'].values - epoch) / np.timedelta64(1, 'ns')
+        df['transaction_date'] = df['transaction_date'].astype(np.float64)
+
         if oos_df is None:
-            self.train_df = result
-        return result
+            self.train_df = df
+
+        return df
 
     def impute_missing(self, oos_df: pd.DataFrame = None) -> pd.DataFrame:
         '''
@@ -48,13 +61,16 @@ class DataModeler:
         '''
         if oos_df is None:
             df = self.train_df.copy()
+            # Calculate means from training data
             self.amount_mean = df['amount'].mean()
             self.date_mean = df['transaction_date'].mean()
+            # Fill missing values
             df['amount'] = df['amount'].fillna(self.amount_mean)
             df['transaction_date'] = df['transaction_date'].fillna(self.date_mean)
             self.train_df = df
             return df
         else:
+            # Use pre-calculated means for test data
             result = oos_df.copy()
             result['amount'] = result['amount'].fillna(self.amount_mean)
             result['transaction_date'] = result['transaction_date'].fillna(self.date_mean)
@@ -65,12 +81,10 @@ class DataModeler:
         Fit the model of your choice on the training data paased in the constructor, assuming it has
         been prepared by the functions prepare_data and impute_missing
         '''
-        from sklearn.ensemble import RandomForestClassifier
         X = self.train_df[['amount', 'transaction_date']]
-        y = self.train_df['outcome'] if 'outcome' in self.train_df.columns else None
-        if y is not None:
-            self.model = RandomForestClassifier(random_state=42)
-            self.model.fit(X, y)
+        y = self.original_df['outcome']
+        self.model = RandomForestClassifier(random_state=42)
+        self.model.fit(X, y)
 
     def model_summary(self) -> str:
         '''
