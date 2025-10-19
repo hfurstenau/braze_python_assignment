@@ -88,10 +88,11 @@ def test_imputed_missing_as_mean(transact_train_sample):
     
     # Expected output from train sample
     expected_amounts = [1.0000, 3.0000, 12.0000, 6.0000, 0.5000, 0.2000, 3.8375, 5.0000, 3.8375, 3.0000]
-    expected_dates = [1.640995e+18, 1.659312e+18, 1.650845e+18, 1.669853e+18, 1.643674e+18, 1.650845e+18, 1.643674e+18, 1.640995e+18, 1.667261e+18, 1.640995e+18]
+    expected_dates = [1640995200000000000, 1659312000000000000, 1650844800000000000, 1669852800000000000, 1643673600000000000, 1650844800000000000, 1643673600000000000, 1640995200000000000, 1667260800000000000, 1640995200000000000]
     
     np.testing.assert_array_almost_equal(transactions_modeler.train_df['amount'].values, expected_amounts, decimal=4)
-    np.testing.assert_array_almost_equal(transactions_modeler.train_df['transaction_date'].values, expected_dates, decimal=6)
+    actual_dates = transactions_modeler.train_df['transaction_date'].values.astype('int64')
+    np.testing.assert_array_equal(actual_dates, expected_dates)
 
 
 def test_accuracy_training(transact_train_sample):
@@ -136,10 +137,11 @@ def test_test_sample_imputed_missing(transact_train_sample, transact_test_sample
     
     # Expected output from test sample
     expected_amounts = [0.5000, 3.8375, 8.0000, 3.0000, 2.0000]
-    expected_dates = [1.643674e+18, 1.667261e+18, 1.654042e+18, 1.650845e+18, 1.643674e+18]
+    expected_dates = [1643673600000000000, 1667260800000000000, 1654041600000000000, 1650844800000000000, 1643673600000000000]
     
     np.testing.assert_array_almost_equal(filled_test_sample['amount'].values, expected_amounts, decimal=4)
-    np.testing.assert_array_almost_equal(filled_test_sample['transaction_date'].values, expected_dates, decimal=6)
+    actual_dates = filled_test_sample['transaction_date'].values.astype('int64')
+    np.testing.assert_array_equal(actual_dates, expected_dates)
 
 
 def test_out_of_sample_accuracy(transact_train_sample, transact_test_sample):
