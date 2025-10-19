@@ -1,0 +1,21 @@
+# IDE directories
+.vscode/
+.idea/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pytest cache
+.pytest_cache/
+
+# macOS
+.DS_Store
+
