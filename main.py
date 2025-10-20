@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 
 class DataModeler:
@@ -27,10 +28,9 @@ class DataModeler:
         '''
         self.original_df = sample_df.copy()
         self.train_df = sample_df.copy()
-        self.model = None
-        self.amount_mean = None
-        self.date_mean = None
-        self.scaler = StandardScaler()
+        self.pipeline = None
+        self.train_amount_mean = None
+        self.train_date_mean = None
 
     def prepare_data(self, oos_df: pd.DataFrame = None) -> pd.DataFrame:
         '''
@@ -64,18 +64,18 @@ class DataModeler:
         if oos_df is None:
             df = self.train_df.copy()
             # Calculate means from training data
-            self.amount_mean = df['amount'].mean()
-            self.date_mean = df['transaction_date'].mean()
+            self.train_amount_mean = df['amount'].mean()
+            self.train_date_mean = df['transaction_date'].mean()
             # Fill missing values
-            df['amount'] = df['amount'].fillna(self.amount_mean)
-            df['transaction_date'] = df['transaction_date'].fillna(self.date_mean)
+            df['amount'] = df['amount'].fillna(self.train_amount_mean)
+            df['transaction_date'] = df['transaction_date'].fillna(self.train_date_mean)
             self.train_df = df
             return df
         else:
-            # Use pre-calculated means for test data
+            # Use pre-calculated training means for test data
             result = oos_df.copy()
-            result['amount'] = result['amount'].fillna(self.amount_mean)
-            result['transaction_date'] = result['transaction_date'].fillna(self.date_mean)
+            result['amount'] = result['amount'].fillna(self.train_amount_mean)
+            result['transaction_date'] = result['transaction_date'].fillna(self.train_date_mean)
             return result
 
     def fit(self) -> None:
@@ -83,14 +83,20 @@ class DataModeler:
         Fit the model of your choice on the training data paased in the constructor, assuming it has
         been prepared by the functions prepare_data and impute_missing
         '''
+        # Check that indexes are still aligned
+        if not self.train_df.index.equals(self.original_df.index):
+            raise ValueError("Index mismatch: X and y indexes do not match")
+        
         X = self.train_df[['amount', 'transaction_date']]
         y = self.original_df['outcome']
         
-        # Scale the features
-        X_scaled = self.scaler.fit_transform(X)
+        # Create pipeline with scaler and model
+        self.pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', KNeighborsClassifier(n_neighbors=5, weights='distance'))
+        ])
         
-        self.model = KNeighborsClassifier(n_neighbors=5, weights='distance')
-        self.model.fit(X_scaled, y)
+        self.pipeline.fit(X, y)
 
     def model_summary(self) -> str:
         '''
@@ -108,20 +114,22 @@ class DataModeler:
         """
         )
 
+        # Get the classifier from the pipeline
+        classifier = self.pipeline.named_steps['classifier']
         params = {
-            "n_neighbors": self.model.n_neighbors,
-            "weights": self.model.weights,
-            "algorithm": self.model.algorithm,
-            "metric": self.model.metric
+            "n_neighbors": classifier.n_neighbors,
+            "weights": classifier.weights,
+            "algorithm": classifier.algorithm,
+            "metric": classifier.metric
         }
         features = list(self.train_df.columns)
         n_samples = len(self.train_df)
 
-        result = f"Model: KNeighborsClassifier\n"
+        result = f"Model: Pipeline with StandardScaler + KNeighborsClassifier\n"
         result += f"Parameters: {params}\n"
         result += f"Features: {', '.join(features)}\n"
         result += f"Training samples: {n_samples}\n"
-        result += f"Feature scaling: StandardScaler"
+        result += f"Pipeline steps: {list(self.pipeline.named_steps.keys())}"
         
         return result
 
@@ -136,11 +144,8 @@ class DataModeler:
         else:
             X = oos_df[['amount', 'transaction_date']]
         
-        # Scale the features using the fitted scaler
-        X_scaled = self.scaler.transform(X)
-        
-        # Use standard predict for KNN
-        return pd.Series(self.model.predict(X_scaled))
+        # Use pipeline to predict (automatically applies scaling)
+        return pd.Series(self.pipeline.predict(X))
 
     def save(self, path: str) -> None:
         '''
