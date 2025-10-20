@@ -104,7 +104,7 @@ class DataModeler:
         if not X.index.equals(y.index):
             raise ValueError("Index mismatch: X and y indexes do not match")
 
-        # Create pipeline with scaler and model (cached together in save/load)
+        # Create pipeline with scaler and model
         self.pipeline = Pipeline(
             [
                 ("scaler", StandardScaler()),
@@ -168,6 +168,14 @@ class DataModeler:
         '''
         Save the DataModeler so it can be re-used.
         '''
+        # Note: This saves the entire object including DataFrames. In production, save only:
+        # {
+        #     'pipeline': self.pipeline,  # scaler + model
+        #     'train_amount_mean': self.train_amount_mean,
+        #     'train_date_mean': self.train_date_mean
+        # }
+        # Or even better: separate DataLoader and Modeller classes
+        
         with open(f"{path}.pkl", "wb") as f:
             pickle.dump(self, f)
 
