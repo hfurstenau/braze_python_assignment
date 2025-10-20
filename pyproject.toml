@@ -18,6 +18,9 @@ pytest = "^8.4.2"
 black = "^25.9.0"
 matplotlib = "^3.10.7"
 
+[tool.black]
+line-length = 88
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -16,6 +16,7 @@ Instructions:
 from __future__ import annotations
 import numpy as np
 import pandas as pd
+import pickle
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -38,17 +39,19 @@ class DataModeler:
         If the argument is None, work on the training data passed in the constructor.
         '''
         df = self.train_df.copy() if oos_df is None else oos_df.copy()
-        df = df[['amount', 'transaction_date']].copy()
+        df = df[["amount", "transaction_date"]].copy()
 
         # TRANSACTION DATE: vectorised solution
-        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
+        df["transaction_date"] = pd.to_datetime(df["transaction_date"])
 
         # reference epoch for Unix time (naive, no timezone)
-        epoch = np.datetime64('1970-01-01T00:00:00')
+        epoch = np.datetime64("1970-01-01T00:00:00")
 
         # convert datetime64 column to float nanoseconds since epoch
-        df['transaction_date'] = (df['transaction_date'].values - epoch) / np.timedelta64(1, 'ns')
-        df['transaction_date'] = df['transaction_date'].astype(np.float64)
+        df["transaction_date"] = (
+            df["transaction_date"].values - epoch
+        ) / np.timedelta64(1, "ns")
+        df["transaction_date"] = df["transaction_date"].astype(np.float64)
 
         if oos_df is None:
             self.train_df = df
@@ -64,18 +67,20 @@ class DataModeler:
         if oos_df is None:
             df = self.train_df.copy()
             # Calculate means from training data
-            self.train_amount_mean = df['amount'].mean()
-            self.train_date_mean = df['transaction_date'].mean()
+            self.train_amount_mean = df["amount"].mean()
+            self.train_date_mean = df["transaction_date"].mean()
             # Fill missing values
-            df['amount'] = df['amount'].fillna(self.train_amount_mean)
-            df['transaction_date'] = df['transaction_date'].fillna(self.train_date_mean)
+            df["amount"] = df["amount"].fillna(self.train_amount_mean)
+            df["transaction_date"] = df["transaction_date"].fillna(self.train_date_mean)
             self.train_df = df
             return df
         else:
             # Use pre-calculated training means for test data
             result = oos_df.copy()
-            result['amount'] = result['amount'].fillna(self.train_amount_mean)
-            result['transaction_date'] = result['transaction_date'].fillna(self.train_date_mean)
+            result["amount"] = result["amount"].fillna(self.train_amount_mean)
+            result["transaction_date"] = result["transaction_date"].fillna(
+                self.train_date_mean
+            )
             return result
 
     def fit(self) -> None:
@@ -86,16 +91,18 @@ class DataModeler:
         # Check that indexes are still aligned
         if not self.train_df.index.equals(self.original_df.index):
             raise ValueError("Index mismatch: X and y indexes do not match")
-        
-        X = self.train_df[['amount', 'transaction_date']]
-        y = self.original_df['outcome']
-        
+
+        X = self.train_df[["amount", "transaction_date"]]
+        y = self.original_df["outcome"]
+
         # Create pipeline with scaler and model (cached together in save/load)
-        self.pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ('classifier', KNeighborsClassifier(n_neighbors=5, weights='distance'))
-        ])
-        
+        self.pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("classifier", KNeighborsClassifier(n_neighbors=5, weights="distance")),
+            ]
+        )
+
         self.pipeline.fit(X, y)
 
     def model_summary(self) -> str:
@@ -103,7 +110,7 @@ class DataModeler:
         Create a short summary of the model you have fit.
         '''
         print(
-        """
+            """
         TASK REASONING:
         - Customer 24 (amount=3.0, date=2022-06-01) sits at a decision boundary; most models (RF, Logistic, SVC) tend to predict True
         - KNN handles boundary cases using local neighborhood:
@@ -115,12 +122,12 @@ class DataModeler:
         )
 
         # Get the classifier from the pipeline
-        classifier = self.pipeline.named_steps['classifier']
+        classifier = self.pipeline.named_steps["classifier"]
         params = {
             "n_neighbors": classifier.n_neighbors,
             "weights": classifier.weights,
             "algorithm": classifier.algorithm,
-            "metric": classifier.metric
+            "metric": classifier.metric,
         }
         features = list(self.train_df.columns)
         n_samples = len(self.train_df)
@@ -130,7 +137,7 @@ class DataModeler:
         result += f"Features: {', '.join(features)}\n"
         result += f"Training samples: {n_samples}\n"
         result += f"Pipeline steps: {list(self.pipeline.named_steps.keys())}"
-        
+
         return result
 
     def predict(self, oos_df: pd.DataFrame = None) -> pd.Series[bool]:
@@ -140,10 +147,10 @@ class DataModeler:
         If the argument is None, work on the training data passed in the constructor.
         '''
         if oos_df is None:
-            X = self.train_df[['amount', 'transaction_date']]
+            X = self.train_df[["amount", "transaction_date"]]
         else:
-            X = oos_df[['amount', 'transaction_date']]
-        
+            X = oos_df[["amount", "transaction_date"]]
+
         # Use pipeline to predict (automatically applies scaling)
         return pd.Series(self.pipeline.predict(X))
 
@@ -151,8 +158,7 @@ class DataModeler:
         '''
         Save the DataModeler so it can be re-used.
         '''
-        import pickle
-        with open(f"{path}.pkl", 'wb') as f:
+        with open(f"{path}.pkl", "wb") as f:
             pickle.dump(self, f)
 
     @staticmethod
@@ -160,8 +166,7 @@ class DataModeler:
         '''
         Reload the DataModeler from the saved state so it can be re-used.
         '''
-        import pickle
-        with open(f"{path}.pkl", 'rb') as f:
+        with open(f"{path}.pkl", "rb") as f:
             return pickle.load(f)
 
 
@@ -320,10 +325,3 @@ print(f'Accuracy = {sum(oos_predictions == [False, True, True, False, False])/.0
 # <Expected Output>
 # Predicted on out of sample data: [False True True False False] ([0 1 1 0 0])
 # Accuracy = 100.0%
-
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    pass
-
