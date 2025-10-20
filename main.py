@@ -90,7 +90,7 @@ class DataModeler:
         X = self.train_df[['amount', 'transaction_date']]
         y = self.original_df['outcome']
         
-        # Create pipeline with scaler and model
+        # Create pipeline with scaler and model (cached together in save/load)
         self.pipeline = Pipeline([
             ('scaler', StandardScaler()),
             ('classifier', KNeighborsClassifier(n_neighbors=5, weights='distance'))
