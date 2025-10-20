@@ -86,6 +86,10 @@ def test_imputed_missing_as_mean(transact_train_sample):
     transactions_modeler.prepare_data()
     transactions_modeler.impute_missing()
     
+    # Verify that customer_id is set as the index (as shown in expected output)
+    assert transactions_modeler.train_df.index.name == 'customer_id'
+    assert list(transactions_modeler.train_df.index) == [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    
     # Expected output from train sample
     expected_amounts = [1.0000, 3.0000, 12.0000, 6.0000, 0.5000, 0.2000, 3.8375, 5.0000, 3.8375, 3.0000]
     expected_dates = [1640995200000000000, 1659312000000000000, 1650844800000000000, 1669852800000000000, 1643673600000000000, 1650844800000000000, 1643673600000000000, 1640995200000000000, 1667260800000000000, 1640995200000000000]
@@ -126,6 +130,7 @@ def test_test_sample_dtypes(transact_train_sample, transact_test_sample):
     pd.testing.assert_series_equal(adjusted_test_sample.dtypes, expected_dtypes)
 
 
+
 def test_test_sample_imputed_missing(transact_train_sample, transact_test_sample):
     transactions_modeler = DataModeler(transact_train_sample)
     transactions_modeler.prepare_data()
@@ -134,6 +139,10 @@ def test_test_sample_imputed_missing(transact_train_sample, transact_test_sample
     
     adjusted_test_sample = transactions_modeler.prepare_data(transact_test_sample)
     filled_test_sample = transactions_modeler.impute_missing(adjusted_test_sample)
+    
+    # Verify that customer_id is set as the index for test sample (as shown in expected output)
+    assert filled_test_sample.index.name == 'customer_id'
+    assert list(filled_test_sample.index) == [21, 22, 23, 24, 25]
     
     # Expected output from test sample
     expected_amounts = [0.5000, 3.8375, 8.0000, 3.0000, 2.0000]

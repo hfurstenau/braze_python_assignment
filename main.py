@@ -22,6 +22,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
 
+# Implementation Assumptions:
+# - Code was only added where "# ** Your code here **" was specified
+# - No method signatures were changed or new methods added
+# - All existing type annotations and method signatures were preserved
+# - This was assumed to be a requirement of the exercise
+
 class DataModeler:
     def __init__(self, sample_df: pd.DataFrame):
         '''
@@ -38,7 +44,10 @@ class DataModeler:
         Prepare a dataframe so it contains only the columns to model and having suitable types.
         If the argument is None, work on the training data passed in the constructor.
         '''
-        df = self.train_df.copy() if oos_df is None else oos_df.copy()
+        df = self.train_df.copy() if oos_df is None else oos_df.copy() 
+
+        # matching expected output, but should be careful with duplicated indexing
+        df = df.set_index("customer_id")
         df = df[["amount", "transaction_date"]].copy()
 
         # TRANSACTION DATE: vectorised solution
@@ -88,12 +97,12 @@ class DataModeler:
         Fit the model of your choice on the training data paased in the constructor, assuming it has
         been prepared by the functions prepare_data and impute_missing
         '''
-        # Check that indexes are still aligned
-        if not self.train_df.index.equals(self.original_df.index):
-            raise ValueError("Index mismatch: X and y indexes do not match")
-
         X = self.train_df[["amount", "transaction_date"]]
-        y = self.original_df["outcome"]
+        y = self.original_df.set_index("customer_id")["outcome"]
+        
+        # Check that indexes are still aligned
+        if not X.index.equals(y.index):
+            raise ValueError("Index mismatch: X and y indexes do not match")
 
         # Create pipeline with scaler and model (cached together in save/load)
         self.pipeline = Pipeline(
@@ -152,7 +161,8 @@ class DataModeler:
             X = oos_df[["amount", "transaction_date"]]
 
         # Use pipeline to predict (automatically applies scaling)
-        return pd.Series(self.pipeline.predict(X))
+        # Note: Expected output shows list type, but method signature requires pd.Series[bool]
+        return pd.Series(self.pipeline.predict(X))  
 
     def save(self, path: str) -> None:
         '''
